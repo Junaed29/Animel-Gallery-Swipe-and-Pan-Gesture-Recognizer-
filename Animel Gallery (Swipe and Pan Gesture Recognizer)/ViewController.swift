@@ -49,18 +49,107 @@ class ViewController: UIViewController {
     var currentPicture: UIImageView?
     let originalSize: CGFloat = 300
     
+    var isActive = false
+    
+    var activeSize: CGFloat{
+        return originalSize + 10
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
+        showNextPicture()
+    }
+    
+    @objc func handleSwipe(_ sender: UISwipeGestureRecognizer) -> Void {
+        guard !isActive else {return}
+        hidePicture(currentPicture!)
+        showNextPicture()
     }
 
+    func showNextPicture() -> Void {
+        if let newPicture = createPicture(){
+            currentPicture = newPicture
+            showPicture(newPicture)
+            
+            let tap = UITapGestureRecognizer(target: self, action: #selector(self.handleTap))
+            newPicture.addGestureRecognizer(tap)
+            
+            let swipe = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipe(_:)))
+            
+            swipe.direction = .up
+            newPicture.addGestureRecognizer(swipe)
+        }else{
+            nextIndex = 0
+            showNextPicture()
+        }
+    }
+    
+    
+    @objc func handleTap(){
+        isActive = !isActive
+        
+        
+        if isActive{
+            activeCurrentPicture()
+        }else{
+            deactiveCurrentPicture()
+        }
+    }
+    
+    func activeCurrentPicture(){
+        UIView.animate(withDuration: 0.3) {
+            self.currentPicture?.frame.size = CGSize(width: self.activeSize, height: self.activeSize)
+            self.currentPicture?.layer.shadowOpacity = 0.5
+            self.currentPicture?.layer.borderColor = UIColor.green.cgColor
+        }
+    }
+    
+    func deactiveCurrentPicture(){
+        UIView.animate(withDuration: 0.3) {
+            self.currentPicture?.frame.size = CGSize(width: self.originalSize, height: self.originalSize)
+            self.currentPicture?.layer.shadowOpacity = 0
+            self.currentPicture?.layer.borderColor = UIColor.darkGray.cgColor
+        }
+    }
 
     func createPicture() -> UIImageView?{
         guard nextIndex < gallery.count else { return nil }
+        
         let imageView = UIImageView(image: gallery[nextIndex])
+        imageView.frame = CGRect(x: self.view.frame.width, y: self.view.center.y - (originalSize/2), width: originalSize, height: originalSize)
+        
+        //Shadow
+        imageView.layer.shadowColor = UIColor.black.cgColor
+        imageView.layer.shadowOpacity = 0
+        imageView.layer.shadowOffset = .zero
+        imageView.layer.shadowRadius = 10
+        
+        //Frame
+        imageView.layer.borderWidth = 2
+        imageView.layer.borderColor = UIColor.darkGray.cgColor
+        
+        imageView.isUserInteractionEnabled = true
         
         nextIndex += 1
         return imageView
+    }
+    
+    func showPicture(_ imageView: UIImageView){
+        self.view.addSubview(imageView)
+        
+        UIView.animate(withDuration: 0.4) {
+            imageView.center = self.view.center
+        }
+    }
+    
+    func hidePicture(_ imageView: UIImageView){
+        
+        UIView.animate(withDuration: 0.4) {
+            self.currentPicture?.frame.origin.y = -self.originalSize
+        } completion: { _ in
+            imageView.removeFromSuperview()
+        }
+
     }
 }
 
