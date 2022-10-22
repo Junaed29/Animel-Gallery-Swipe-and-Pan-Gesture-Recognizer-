@@ -9,8 +9,8 @@ import UIKit
 
 class ViewController: UIViewController {
     @IBOutlet weak var trashImageView: UIImageView!
-    
-    let gallery = [
+
+    var gallery = [
         UIImage(named: "animel_1"),
         UIImage(named: "animel_2"),
         UIImage(named: "animel_3"),
@@ -44,67 +44,114 @@ class ViewController: UIViewController {
         UIImage(named: "animel_31"),
         UIImage(named: "animel_32")
     ]
-    
+
     var nextIndex = 0
     var currentPicture: UIImageView?
     let originalSize: CGFloat = 300
-    
+
     var isActive = false
-    
-    var activeSize: CGFloat{
+
+    var activeSize: CGFloat {
         return originalSize + 10
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         showNextPicture()
     }
-    
-    @objc func handleSwipe(_ sender: UISwipeGestureRecognizer) -> Void {
-        guard !isActive else {return}
-        hidePicture(currentPicture!)
-        showNextPicture()
-    }
 
     func showNextPicture() -> Void {
-        if let newPicture = createPicture(){
+        if let newPicture = createPicture() {
             currentPicture = newPicture
             showPicture(newPicture)
-            
+
             let tap = UITapGestureRecognizer(target: self, action: #selector(self.handleTap))
             newPicture.addGestureRecognizer(tap)
-            
+
             let swipe = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipe(_:)))
-            
+
             swipe.direction = .up
             newPicture.addGestureRecognizer(swipe)
-        }else{
+
+            let panGesture = UIPanGestureRecognizer(target: self, action: #selector(self.handelPan(_:)))
+            panGesture.delegate = self
+            newPicture.addGestureRecognizer(panGesture)
+        } else {
             nextIndex = 0
             showNextPicture()
         }
     }
-    
-    
-    @objc func handleTap(){
+
+
+    @objc func handleTap() {
         isActive = !isActive
-        
-        
-        if isActive{
+
+
+        if isActive {
             activeCurrentPicture()
-        }else{
+        } else {
             deactiveCurrentPicture()
         }
     }
-    
-    func activeCurrentPicture(){
+
+
+    @objc func handleSwipe(_ sender: UISwipeGestureRecognizer) -> Void {
+        guard let currentPicture, !isActive else { return }
+        hidePicture(currentPicture)
+        showNextPicture()
+    }
+
+
+    @objc func handelPan(_ sender: UIPanGestureRecognizer) {
+        guard let currentPicture, isActive else { return }
+
+        switch sender.state {
+        case .began, .changed:
+            processPictureMovment(sender: sender, view: currentPicture)
+        case .ended:
+            if currentPicture.frame.intersects(trashImageView.frame) {
+                deletePicture(imageView: currentPicture)
+            }
+        default: break
+        }
+
+    }
+
+    func processPictureMovment(sender: UIPanGestureRecognizer, view: UIImageView) {
+        let translation = sender.translation(in: view)
+        view.center = CGPoint(x: view.center.x + translation.x, y: view.center.y + translation.y)
+        sender.setTranslation(.zero, in: view)
+
+        if view.frame.intersects(trashImageView.frame) {
+            view.layer.borderColor = UIColor.red.cgColor
+        } else {
+            view.layer.borderColor = UIColor.green.cgColor
+        }
+    }
+
+    func deletePicture(imageView: UIImageView) {
+        self.gallery.remove(at: nextIndex - 1)
+        isActive = false
+
+        UIView.animate(withDuration: 0.4) {
+            imageView.alpha = 0
+        } completion: { _ in
+            imageView.removeFromSuperview()
+        }
+
+        showNextPicture()
+    }
+
+
+    func activeCurrentPicture() {
         UIView.animate(withDuration: 0.3) {
             self.currentPicture?.frame.size = CGSize(width: self.activeSize, height: self.activeSize)
             self.currentPicture?.layer.shadowOpacity = 0.5
             self.currentPicture?.layer.borderColor = UIColor.green.cgColor
         }
     }
-    
-    func deactiveCurrentPicture(){
+
+    func deactiveCurrentPicture() {
         UIView.animate(withDuration: 0.3) {
             self.currentPicture?.frame.size = CGSize(width: self.originalSize, height: self.originalSize)
             self.currentPicture?.layer.shadowOpacity = 0
@@ -112,44 +159,50 @@ class ViewController: UIViewController {
         }
     }
 
-    func createPicture() -> UIImageView?{
+    func createPicture() -> UIImageView? {
         guard nextIndex < gallery.count else { return nil }
-        
+
         let imageView = UIImageView(image: gallery[nextIndex])
-        imageView.frame = CGRect(x: self.view.frame.width, y: self.view.center.y - (originalSize/2), width: originalSize, height: originalSize)
-        
+        imageView.frame = CGRect(x: self.view.frame.width, y: self.view.center.y - (originalSize / 2), width: originalSize, height: originalSize)
+
         //Shadow
         imageView.layer.shadowColor = UIColor.black.cgColor
         imageView.layer.shadowOpacity = 0
         imageView.layer.shadowOffset = .zero
         imageView.layer.shadowRadius = 10
-        
+
         //Frame
         imageView.layer.borderWidth = 2
         imageView.layer.borderColor = UIColor.darkGray.cgColor
-        
+
         imageView.isUserInteractionEnabled = true
-        
+
         nextIndex += 1
         return imageView
     }
-    
-    func showPicture(_ imageView: UIImageView){
+
+    func showPicture(_ imageView: UIImageView) {
         self.view.addSubview(imageView)
-        
+
         UIView.animate(withDuration: 0.4) {
             imageView.center = self.view.center
         }
     }
-    
-    func hidePicture(_ imageView: UIImageView){
-        
+
+    func hidePicture(_ imageView: UIImageView) {
+
         UIView.animate(withDuration: 0.4) {
             self.currentPicture?.frame.origin.y = -self.originalSize
         } completion: { _ in
             imageView.removeFromSuperview()
         }
 
+    }
+}
+
+extension ViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        true
     }
 }
 
